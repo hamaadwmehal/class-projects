@@ -1,0 +1,261 @@
+---
+title: "ps_8.Rmd"
+author: "Hamaad Mehal"
+date: "4/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(haven)
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(tidycensus)
+library(gt)
+library(magrittr)
+library(infer)
+library(skimr)
+library(tidyr)
+library(broom)
+library(fivethirtyeight)
+
+
+data <- load("raw-data/tweetsnew.Rdata")
+poll <- view(trump_approval_poll)
+```
+
+# 1A
+
+```{r Question 1A, echo = FALSE}
+tt <- tweets %>%
+  group_by(week) %>%
+  count(week) %>%
+  rename(total_tweets = n)
+
+# With this I created a new variable as was specified by the PSET's rubric.
+# The code for this was pretty straightforward as I was told how to do it.
+
+poll$week <- ceiling(as.numeric(difftime(poll$end_date, "2017-01-01", units = "days"))/7)
+
+# I copied this from the rubric to create a "week" variable.
+
+joined_polls <- poll %>%
+  left_join(tt, by = "week")
+
+# I left joined the poll with total_tweets as was specified in the instructions.
+# This was just a little bit more difficult as it combined the data on week.
+
+joined_polls[is.na(joined_polls)] <- 0
+
+# I used https://stackoverflow.com/questions/10139284/set-na-to-0-in-r to help
+# set the weeks in which there are no tweets to zero.
+
+skim(joined_polls, total_tweets, approve)
+```
+
+# 1B
+
+```{r Question 1B, echo = FALSE}
+joined_polls$grade <- fct_explicit_na(joined_polls$grade, na_level = "(Missing)")
+
+# We set the NAs in the data to missing as was specified by the rubric. This 
+# was also hinted at in the pset rubric.
+
+ggplot(joined_polls, aes(x = total_tweets, y = approve, color = grade)) +
+  geom_point() +
+  labs(x = "Total Tweets",
+       y = "Approval Rating",
+       title = "Trump Approval Ratings and Number of Tweets",
+       subtitle = "Data from fivethirtyeight and Trump Twitter Archive") +
+  theme_classic()
+
+# I made the ggplot according to that in the infographic. Funny enough, I was
+# having trouble with color before eventually realizing that I wasn't doing it
+# according to grades. 
+
+cor_jp <- joined_polls %>%
+  summarise(correlation = cor(total_tweets, approve)) %>%
+  pull(correlation)
+
+# I found the correlation between tweets and the approval rating as was also
+# specified by the rubric.
+
+```
+
+
+The correlation coefficient between the approval rating and the number of 
+tweets is `r cor_jp`.
+
+
+# 2A
+
+```{r Question 2A, echo = FALSE}
+joined_polls <- joined_polls %>%
+  mutate(high_q = ifelse(joined_polls$grade == c("A+", "A", "A-"), 1, 0))
+
+# I created a higher quality variable using code from the last pset and hints
+# from the rubric.
+
+regression_model <- lm(approve ~ total_tweets + high_q, data = joined_polls) 
+
+# I ran a linear regression on total tweets and high q to establish a 
+# relationship for the GT. 
+
+gt_1 <- regression_model %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high)
+
+# Tidy'd the data and selected relevant data on it.
+
+gt_1 %>%
+  gt() %>%
+  tab_header(title = "Effect of Number of Tweets and Poll Quality on Reported Approval Rating") %>%
+  tab_spanner(label = "Data from fivethirtyeight and Trump Tweet Archive", columns = 
+                c("term", "estimate", "conf.low", "conf.high")) %>%
+  cols_label(term = "Variable", estimate = "Estimate", conf.low =
+               "Lower Bound", conf.high = "Upper Bound")
+
+# Used identical gt code as was on the last pset to make this table.
+
+```
+
+# 2B
+
+The average treatment effect of high_q is that for high-quality polls, there 
+is a 2.540 unit decrease in reported approval rating compared to all polls on 
+all tweets. Trump's approval rating is predicted to be 2.3540 units lower than
+that of all tweets (-0.004) when compared to its impact on high-quality polls. 
+95% of the time, the true value is in between the bounds according to the 
+frequentist interprtation. According to the Bayesian interpretation, we can be
+95% sure that the true value will lie between the upper and lower bounds. 
+
+# 2C
+
+```{r Question 2C, echo = FALSE}
+regression_model_2c <- lm(approve ~ total_tweets * high_q, data = joined_polls) 
+
+# Received help from Jun Yong Kim on finding the effect of tweets on the high
+# quality polls.
+
+gt_r2c <- regression_model_2c %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high)
+
+# Used the same code as above for this and the gt. This process was easy as I
+# copied the code from above for this.
+
+gt_r2c %>%
+  gt() %>%
+  tab_header(title = "Effect of More Tweets on High Quality Polls") %>%
+  tab_spanner(label = "Data from fivethirtyeight and Trump Tweet Archive", columns = 
+                c("term", "estimate", "conf.low", "conf.high")) %>%
+  cols_label(term = "Variable", estimate = "Estimate", conf.low =
+               "Lower Bound", conf.high = "Upper Bound")
+
+
+```
+
+# 2D
+
+```{r Question 2D, echo = FALSE}
+formula <- -0.004344031 * 84 - 2.874972881 * 1 + 0.019158192 * 84 + 41.500711791 
+
+# Derived the formula from the table and regression statistics above.
+
+formula
+
+regression_model_2c %>%
+  augment(data = joined_polls) %>%
+  filter(pollster == "Monmouth University", end_date == "2019-09-19") %>%
+  slice(1) %>%
+  pull(.fitted)
+
+# I used questions on Piazza to figure out how to use augment for this and get
+# the best estimate of the value. 
+
+```
+
+# 2E
+
+I would interpret the coefficient with total tweets in this regression as the
+impact the total tweets have on his approval rating and the estimated causal 
+effect it has on Democrats' approval ratings. The actual coefficient would be
+the estimated effect that one more tweet per week would have on the Democrats'
+approval rating. This would also be the effect that the tweets have on his 
+reported approval ratings. I would interpret the coefficient 
+of approval as the causal effect that the reported approval ratings have on 
+Democrats' approval ratings. In this case, the coefficient is the impact that
+one more increase in the rating has on the Democrats' approval rating. Lastly, 
+the coefficient regression for Democrats is the causal effect being assigned to
+the high or low tweet volume has on Democrats' approval ratings. This is the
+average causal effect that a high or low tweet volume has on the approval rates
+on Democrats as it is randomly assigned and looks directly at the changes in
+approval rating associated with Trump's week's assigned treatment 
+(high or low tweet volume).
+
+# 3
+
+```{r Question 3, echo=FALSE}
+joined_polls$month <- ceiling(poll$week/4)
+
+tweets$month <- ceiling(tweets$week/4)
+
+
+joined_polls %>%
+  mutate(high_q = ifelse(grade %in% c("A+", "A", "A-"), "A+, A- or A", "Lower than A- or Missing")) %>%
+  group_by(month, high_q) %>%
+  mutate(average = mean(approve)) %>%
+  ggplot(aes(month, average, color = high_q)) +
+  scale_color_manual(values = c("red", "blue")) +
+  theme_classic() +
+  labs(title = "Approval Rating By Poll Quality",
+       x = "Month", y = "Average Approval Rating",
+       color = "Poll Quality") +
+  geom_line()
+
+# I was able to derive most of this on my own but had immense trouble with 
+# Poll Quality which Naina Tejani helped me with. She is the one who helped
+# me with mutate and walked me through it.
+
+tweets_month <- tweets %>%
+  filter(month <= 11) %>%
+  group_by(month) 
+
+ggplot(tweets_month, aes(month)) +
+  geom_bar() +
+  theme_classic() +
+  labs(x = "Month",
+       y = "Tweets",
+       title = "Total Tweets",
+       subtitle = "President Trump")
+
+# This plot was pretyy straightforward, and I did not have much difficulty 
+# creating this.
+
+# I was unable to make the final two graphs as I was having an error with getting 
+# approve, and unfortunately, I could not get it to work in time.
+
+# question_33 <- joined_polls %>%
+#  group_by(month) %>%
+#  nest()
+
+# question_33 %>%
+#  mutate(mod = map(poll, ~lm(approve ~ total_tweets + high_q, data = .)), 
+#         reg_results = map(mod, ~ tidy(., conf.int = TRUE)),
+#         coef = map_dbl(reg_results, ~filter(., term == "high_q") %>%
+#         pull(estimate)), se = map_dbl(reg_results, ~ filter(.,
+#         term == "high_q") %>% pull(std.error)), upper = coef + 1.96 *
+#           se, lower = coef - 1.96 * se) %>%
+#        ggplot(aes(x = month, y = coef)) +
+#        geom_hline(yintercept = 0, linetpe = "dashed") +
+#        geom_errorbar(aes(ymin = lower, ymax = upper), color = "darkgreen") +
+#        theme_classic() +
+#        labs(title = "Effect of Total Tweets \n on Estimated Approval Rating",
+#        subtitle = "Controlling for Poll Quality",
+#        x = "Month", y = "Coefficient")
+  
+
+```
+
+Collaborators: Tahmid Ahmed, Jun Yong Kim, Naina Tejani, Hamid Khan
