@@ -1,0 +1,162 @@
+---
+title: "pset_2.Rmd"
+author: "Hamaad Mehal"
+date: "2/12/2020"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(devtools)
+library(tidyverse)
+library(fivethirtyeight)
+
+# this chunk loads all the necessary tools and data for the endoresement info.
+# Initially, I forgot to install fivethirtyeight in the console which presented
+# issues, but Asmer Safi helped me with this.
+
+```
+
+```{r}
+first_endorsement <- endorsements_2020 %>%
+  arrange(date) %>%
+  slice(1) %>%
+  pull(date)
+
+# This pulls the first endorsement date from the data by arranging it by 
+# first and then pulling the first data point from the endorsements. I ran
+# into an issue because I initially grouped by candidate but quickly realized
+# that was unnecessary. Yao Yu assisted me with debugging the slice function 
+# here.
+
+```
+The earliest date for an endorsement in the dataset is `r first_endorsement`.
+
+```{r}
+recent_endorsement <- endorsements_2020 %>%
+  arrange(desc(date)) %>%
+  slice(1) %>%
+  pull(date)
+
+# This pulls the most recent endorsement date from the data by arranging it by 
+# most recent and then pulling the first data point (most recent) from the 
+# endorsements. I went through the same process on this as the one before. 
+
+```
+The most recent date for an endorsement is `r recent_endorsement`.
+```{r}
+mayor_endorsement <- endorsements_2020 %>%
+  filter(endorsements_2020$position == "mayor", 
+         endorsements_2020$endorsee == "Pete Buttigieg") %>%
+  select(endorser) %>%
+  pull(endorser)
+
+# I filtered through the data by looking at endorsers who were mayors and
+# seeing which one of these mayoral endorsers endorsed Buttigieg. My thought 
+# process was fairly straightforward on this topic as I remembered filtering
+# similarly in datacamp.
+
+```
+`r mayor_endorsement` is the mayor that has endorsed Pete Buttigieg.
+
+```{r}
+NH_endorsement <- endorsements_2020 %>%
+  filter(endorsements_2020$state == "NH") %>%
+  summarize(mean = mean(points)) %>%
+  pull(mean)
+
+# I filtered for only New Hampshire data points and then took the average for 
+# the points from New Hampshire by summing it and averaging it using mean. My
+# thought process on this was also fairly straightforward as I recently did this
+# in Datacamp too.
+
+```
+Endorsers from New Hampshire have an average of `r NH_endorsement` endorsement 
+points.
+
+```{r}
+femalecandidate_endorsement <- endorsements_2020 %>%
+  filter(endorsee %in% c("Elizabeth Warren", "Amy Klobuchar")) %>%
+  summarize(sum = sum(points)) %>%
+  pull(sum)
+
+# Elias assisted with code by reminding me of %in%.
+# I filtered for specifically Warren and Klobuchar first. Then just summed up
+# the total points for those two candidates to get the result. Initially, I 
+# experienced trouble due to the fact that I did not remember how to filter for
+# two sets of characters.
+
+```
+Between them, the two female candidates who remain in the race (Amy Klobuchar 
+and Elizabeth Warren) have a total of `r femalecandidate_endorsement` 
+endorsement points.
+
+
+
+```{r}
+  position <- class(endorsements_2020$position) 
+
+# I took the class of the position row. You helped me how to print the class() 
+# function as I was previously unfamiliar with it.
+
+```
+The variable "position" is a `r position` class of variable.
+
+```{r}
+  endorser <- class(endorsements_2020$endorser)
+
+# I took the class of the endorser row. I figured out how to do this from the
+# same process of the previous chunk.
+
+```
+The variable "endorser" is a `r endorser` class of variable.
+
+
+```{r}
+  points <- class(endorsements_2020$points)
+
+# I took the class of the points row. A similar process occurred with this as 
+# with the preceding two chunks.
+
+```
+The variable "points" is a `r points` class of variable.
+
+```{r}
+library(ggplot2)
+library(gov.1005.data)
+library(ggthemes)
+
+# I loaded the library with necessary data (gov.1005.data) and the gg tools
+# to create a graph as I remember doing this in class. 
+
+```
+
+```{r}
+ages <- congress%>%
+filter(party %in% c("R", "D")) %>%
+group_by(year, party) %>%
+summarize(avgAge=mean(age))
+
+ggplot(ages, aes(year,avgAge, color=party))+
+  geom_line() +
+  annotate("text", x = 1965, y = 56, label = "Republicans", color = "red") +
+  annotate("text", x = 2000, y = 58, label = "Democrats", color = "blue") +
+  scale_x_continuous(limits = c(1947,2013), breaks = c(1950, 1960, 1970, 
+  1980, 1990, 2000, 2010),label = c("1950", "'60", "'70", "'80", "'90", "2000",
+  "'10")) +
+  scale_y_continuous(limits = c(40,62.5), breaks = c(40, 45, 50, 55, 60), 
+  label = c("40", "45", "50", "55", "60")) +
+  theme_fivethirtyeight() +
+  theme(legend.position = "none") +
+  labs(title = "Average Age of Members of Congress", 
+       subtitle = "At start of term, 1947-2013", 
+       caption = "Source: fivethirtyeight package") + 
+  scale_color_manual(values = c("Blue", "Red"))
+
+# I took the skeleton for this code from last Tuesday's code in class. 
+# Using the hints on the PSET, I figured out how to use annotate(), scale, and,
+# lab with the help of Ella Michaels, Prabidhik KC, and Yao Yu. This took a lot of
+# copy/pasting, as well as trial-and-error, to figure out how to actually use 
+# these new functions. I figured out how to adjust the color and Democrat 
+#line with the help of Asmer.
+
+```
