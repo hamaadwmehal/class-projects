@@ -1,0 +1,58 @@
+---
+title: "ps_5_rpub.Rmd"
+author: "Hamaad Mehal"
+date: "3/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(haven)
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(tidycensus)
+library(gt)
+library(magrittr)
+library(infer)
+
+# This chunk loads all the necessary tools and data for the endoresement info.
+# This chunk is what we use to call upon functions such as gt and ggplot2. 
+
+```
+
+```{r, echo = FALSE}
+uni <- tibble(grade = c(rep("freshman", 1800),rep("sophomore", 1450), 
+        rep("junior", 1570), rep("senior", 1300)), student_id = c(1:6120))
+
+# Created a tibble with the specified numbers per grade. Also made a student_id
+# element for all 6120 students in the university.
+
+sizes <- set_names(list(25, 50, 100, 500), nm = list(25, 50, 100, 500))
+
+set.seed(02139)
+
+uni_sample <- map_df(sizes, ~ rep_sample_n(uni, size =., reps = 5000), 
+                     .id = "sizes") %>%
+  group_by(sizes, replicate)
+
+frosh_sample <- uni_sample %>% 
+  summarize(freshman = sum(grade == "freshman"), total = n()) %>%
+  mutate(prop_frosh = freshman / total)
+
+frosh_sample$sizes = factor(frosh_sample$sizes, 
+                            levels = c("25", "50", "100", "500"))
+
+y <- frosh_sample %>%
+  ggplot(aes(x = prop_frosh, show.legend = TRUE, fill = sizes)) +
+geom_density(alpha=.3) +
+theme_classic() +
+labs(x = "Proportion of freshmen", y = "Count", title =
+  "Distribution of Percentage Freshmen", subtitle = 
+  "Average sampled percentage gets closer to true percentage as sample size increases",
+  fill = "size")
+
+y
+
+ggsave("dist_by_sample_size.png", width = 7.5, height = 7.5)
+```
