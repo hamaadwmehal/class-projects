@@ -1,0 +1,296 @@
+---
+title: "ps_6.Rmd"
+author: "Hamaad Mehal"
+date: "3/23/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(haven)
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(tidycensus)
+library(gt)
+library(magrittr)
+library(infer)
+
+# This chunk loads all the necessary tools and data for the endoresement info.
+# This chunk is what we use to call upon functions such as gt and ggplot2. 
+
+```
+
+```{r, echo = FALSE}
+
+create_deck <- function(n = 1) {
+  
+  
+  tibble(value = rep(c("2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"), 4),
+         points = rep(c(2:10, 10, 10, 10, 10),4),
+         suit = rep(c("diamonds", "hearts", "clubs", "spades"), 1, each = 13),
+         name = paste(value,"of", suit))
+  }
+
+
+# Made create_deck function by making a tibble with all number and face cards 
+# for value by putting in characters for both the numbers and characters. I did
+# this for points too but only put in intervals. I repeated those four times 
+# for each suit name. I put in all suit names and repeated them once but 
+# displayed each 13 times. Each suit has all of the values and points (as it is
+# in the same length(1) as the characters and numbers in both points and value)
+# but is repeated 13 times on its own. Lastly, I found the paste function to 
+# dipslay a combined version of both value and suit. This function was 
+# particularly difficult for me due to a few syntactical errors and the fact 
+# that I wasn't immediately aware of how to organize suit well or use paste() 
+# in name. It took me a couple of hours, but I got help from Asmer Safi on this.
+```
+
+```{r, echo = FALSE}
+draw_card <- function(n, report = "value") {
+  stopifnot(is.numeric(n))
+  stopifnot(is.character(report))
+  create_deck() %>%
+  pull(report) %>%
+  sample(n)
+}
+
+# This is the draw_card function which takes an n and report, checks if n is 
+# numeric and if report is a character (string) and then pulls the report, which
+# is the column of the tibble, from the sample (the # of cards) on the 
+# tibble. The process of creating this code was not difficult as it was stated
+# in the textbook, and we had done similar functions in both class and psets.
+
+```
+
+
+# 1A
+```{r, echo = FALSE}
+set.seed(2)
+draw_card(n = 4, report = "name")
+
+# This code is done according to instructions on the assignment page and display
+# a similar result.
+
+```
+
+# 1B
+```{r, echo = FALSE}
+set.seed(3)
+
+hands <- tibble(draws = map(rep(5,100), draw_card))
+
+# Draws 5 cards 100 times by inputting 5 into the n for draw_card and repeating
+# it 100 times. Then saves it as a variable in a tibble.
+
+graph_1B <- hands %>%
+  slice(1:5) %>%
+  mutate(Face_Card = map_lgl(draws, ~ any
+                       (c("J", "Q", "K", "A") %in% .), TRUE, FALSE)) %>%
+  gt() %>%
+  tab_header(title = "Hands of Five Cards", subtitle = "Checking for Face Values") %>%
+  cols_label(draws = "Draw", Face_Card = "Face Cards?")
+
+graph_1B
+
+# This graph takes the first five samples of draws of five cards and searches
+# for any face cards in it. It then displays whether the value of there being 
+# face cards is true or false by filtering for any of the face cards (which I
+# do through a logical map function). I take that information of the first 5 
+# samples of 5 frawns cards and put it into a table using gt to display both
+# the draws and to show that map_ column worked as it displays the map's tests.
+# Again, this code was straightforward as it was similar to question 2c in ps 5.
+
+```
+
+# 1C
+```{r, echo = FALSE}
+set.seed(4)
+
+tb_cards_name <- 
+  create_deck() %>%
+  sample_n(12)
+
+# Takes a sample of 12 draws from the deck
+
+tb_cards_tbl <- tb_cards_name %>%
+  select(points, name) %>%
+  gt() %>%
+  tab_header(title = "Draw of Twelve Cards") %>%
+  cols_label(points = "Point Value", name = "Card's Name")
+
+tb_cards_tbl
+
+# The table takes the sample of 12, the point values of those cards, and the
+# card's names of the sample of 12 and formatted it into a table shown below. 
+# Again, this was according to the specificatiions of the pset's rubric which 
+# made it easier to format.
+
+```
+
+# 1D
+```{r, include = FALSE}
+
+
+mad_lib <- create_deck() %>%
+  select(points) %>%
+  mutate(average_points = mean(points)) %>%
+  slice(1) %>%
+  pull(average_points)
+
+# I took the whole deck, selected all of the points, and averaged them out. 
+# This created a table with the same average_points value for all 52 cards, so 
+# I just sliced the first card and took the average_points value from that.
+```
+The mean number of points in our entire deck is `r mad_lib`.
+
+# 1E
+```{r, echo = FALSE}
+set.seed(5)
+
+bootstrap_mean <- function(n=1) {
+  rep_sample_n(tb_cards_name, size = 12, replace = TRUE) %>%
+    summarise(mean = mean(points))
+}
+
+# I created a function to get the mean of samples of 12 like I did in 1c. 
+# However, I created a function for it to collect the mean.
+
+tbl <- tibble(mean = map(1:1000,~bootstrap_mean())) %>%
+  unnest(c(mean)) 
+
+tbl %>%
+  mutate(ov_bs_mean = mean(mean)) %>%
+  ggplot(aes(mean)) +
+  geom_histogram(bins = 20) +
+  labs(title = "Distribution of 1000 Bootstrapped Resamples", 
+       subtitle = "From original 12 card sample with mean 7.231", x = "Points", y =
+         "Samples") +
+  scale_x_continuous(breaks = c(5,6,7,8,9)) +
+  scale_y_continuous(breaks = c(0, 50, 100)) +
+   geom_vline(aes(xintercept = 7.231), size=0.70,
+             
+             color = "pink") +
+  
+  geom_vline(aes(xintercept = ov_bs_mean[1]), 
+             
+             size=0.7,
+             
+             color = "lightblue") +
+  
+  annotate("text", x = 7.3, y = 44, 
+                
+       label = "Original Sample Mean", 
+           
+       color = "pink", size = 3.25, angle = 90) +
+  
+  annotate("text", x = 7.1, y = 46.5, 
+                
+       label = "Mean of Bootstrapped Samples", 
+           
+       color = "lightblue", size = 3.25, angle = 90) +
+  theme_classic()
+  
+# I created a tibble to run the function 1000 times and to get 1000 means of 
+# samples of 12. I then saved those means, cleaned it using unnest, and put it
+# in a histogram. I used ov_bs_mean to get the mean of those 1000 means, as that
+# is the mean of my bootstrap sample, and I have to display it on a blue line.
+# This code was immensely difficult, so I had to entail the help of Hamid Khan 
+# for the initial function (bootstrap_mean) and for the graph specifics such as 
+# the x-int, size, and annotate. I used
+# the help of Ibraheem for tbl as I forgot to use unnest, and he showed me his
+# code when I was looking at how to clean up my data..
+
+```
+
+# 1F
+
+```{r, echo = FALSE}
+tbl_aver <- tbl %>%
+  pull(mean)
+
+confidence_table <- tibble(Level = c(0.80, 0.90, 0.95, 0.99)) %>%
+  mutate(Interval = map(Level, ~ paste("(", round(quantile(tbl_aver, c((1 - .) / 2,
+          1-((1 - .1)/2))), digits = 1), ")", sep = ""))) %>%
+  gt() %>%
+  tab_header(title = "Confidence Intervals for Average Point Value"
+  , subtitle = "Bootstrapped Resamples on a 12 Card Hand") %>% 
+  tab_source_note(source_note = "Original Sample Mean of 7.23")
+
+confidence_table
+
+# For this problem, I needed a lot of help. My hands were essentially held
+# throughout my completion of 1F as I was lost at how to create the intervals of
+# this table. Both Tahmid Ahmed and Ibraheem Khan walked me through this as
+# I did not understand how to paste the quantiles according to confidence level
+# in the graph. They each individually walked me through the map function,
+# but I am able to understand that it takes the confidence levels from the tibble,
+# computes the lower quartile [(1-.)/2], and the higher quartile [1-(1-.)/2] by
+# taking the values of level and doing so for every value. Once the two quantiles
+# are figured out by doing computations with Level, then the quantile function 
+# computes the range and is rounded to one digit to replicate the table in the
+# problem set rubric. Creating the table was the easiest part as I just used
+# gt and what I knew of it to display the data in a table identical to that on
+# the pset assignment page. This was probably the most rewarding problem for me
+# as I am now able to understand how object lengths work and are manipulated in
+# different functions (such as in tibble and map). Understanding that this is 
+# how I can get the quantile from and for each level was both important and cool
+# as it is directly applicable to statistical research I can do.
+
+```
+
+
+
+# 1G
+```{r, echo = FALSE}
+
+set.seed(6)
+
+width_ci <- function(n, level) {
+  sampling <- 
+    rep_sample_n(sample_n(create_deck(), n),
+                 size = n, replace = TRUE, reps = 1000) %>%
+    group_by(replicate) %>%
+    summarize(mean = mean(points)) %>%
+    pull(mean)
+  lq <- quantile(sampling, (1 - level)/2)
+  hq <- quantile(sampling, 1-(1 - level)/2)
+  int_1 <- hq - lq
+  int_1
+}
+
+# This is similar to the function done in class on the trains data, so I just 
+# copied some of that code and placed it into a function here to allow me to 
+# do it for any size sample
+wmean_of_intervals <-  tibble(Deck = 2:52) %>%
+    mutate("90%" = map_dbl(Deck,~width_ci(.,0.90))) %>%
+    mutate("95%" = map_dbl(Deck,~width_ci(.,0.95))) %>%
+    mutate("99%" = map_dbl(Deck,~width_ci(.,0.99)))
+
+# This just creates a width of confidence intervals for any of the three 
+# confidence intervals for any sized sample from 2 to 52 of the function.
+# This is done to allow me to display all of the values easily for every 
+# interval and every size sample. This took quite a bit of toggling, but
+# I was able to figure it out in the end. 
+
+wmean_of_intervals %>%
+  pivot_longer(names_to = "CL",
+               values_to = "Width", cols=-Deck) %>%
+  ggplot(aes(Deck,Width, color=CL)) +
+  geom_point() +
+  scale_y_continuous(breaks = c(2,4,6)) +
+  labs(title = "Width of Bootstrapped Confidence Intervals For Different SampleSizes",
+  subtitle = "Calculating the Mean Point Value from a Deck of Cards", 
+  x = "Sample Size",
+  y = "Width of Confidence Interval
+  (Percentile Method)", color = "Confidence Level") +
+  theme_classic()
+
+```
+
+
+# Shiny 2
+https://hamaadwmehal.shinyapps.io/ps_6_shiny/
+
+
+Collaborators: Tahmid Ahmed, Asmer Safi, Ibraheem Khan, Hamid Khan

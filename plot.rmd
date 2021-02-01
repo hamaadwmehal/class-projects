@@ -1,0 +1,68 @@
+```{r, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(haven)
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(tidycensus)
+library(gt)
+library(magrittr)
+library(infer)
+```
+
+```{r, echo = FALSE}
+create_deck <- function(n = 1) {
+  
+  
+  tibble(value = rep(c("2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"), 4),
+         points = rep(c(2:10, 10, 10, 10, 10),4),
+         suit = rep(c("diamonds", "hearts", "clubs", "spades"), 1, each = 13),
+         name = paste(value,"of", suit))
+  }
+```
+
+```{r, echo = FALSE}
+set.seed(6)
+
+width_ci <- function(n, level) {
+  sampling <- 
+    rep_sample_n(sample_n(create_deck(), n),
+                 size = n, replace = TRUE, reps = 1000) %>%
+    group_by(replicate) %>%
+    summarize(mean = mean(points)) %>%
+    pull(mean)
+  lq <- quantile(sampling, (1 - level)/2)
+  hq <- quantile(sampling, 1-(1 - level)/2)
+  int_1 <- hq - lq
+  int_1
+}
+
+# This is similar to the function done in class on the trains data, so I just 
+# copied some of that code and placed it into a function here to allow me to 
+# do it for any size sample
+wmean_of_intervals <-  tibble(Deck = 2:52) %>%
+    mutate("90%" = map_dbl(Deck,~width_ci(.,0.90))) %>%
+    mutate("95%" = map_dbl(Deck,~width_ci(.,0.95))) %>%
+    mutate("99%" = map_dbl(Deck,~width_ci(.,0.99)))
+
+# This just creates a width of confidence intervals for any of the three 
+# confidence intervals for any sized sample from 2 to 52 of the function.
+# This is done to allow me to display all of the values easily for every 
+# interval and every size sample. This took quite a bit of toggling, but
+# I was able to figure it out in the end. 
+
+wmean_of_intervals %>%
+  pivot_longer(names_to = "CL",
+               values_to = "Width", cols=-Deck) %>%
+  ggplot(aes(Deck,Width, color=CL)) +
+  geom_point() +
+  scale_y_continuous(breaks = c(2,4,6)) +
+  labs(title = "Width of Bootstrapped Confidence Intervals For Different SampleSizes",
+  subtitle = "Calculating the Mean Point Value from a Deck of Cards", 
+  x = "Sample Size",
+  y = "Width of Confidence Interval
+  (Percentile Method)", color = "Confidence Level") +
+  theme_classic()
+
+ggsave("ps_6_shiny/bs_confidence_interval.png", width = 10, height = 10)
+```
