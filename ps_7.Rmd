@@ -1,0 +1,234 @@
+---
+title: "ps_7.Rmd"
+author: "Hamaad Mehal"
+date: "4/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(haven)
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(tidycensus)
+library(gt)
+library(magrittr)
+library(infer)
+library(skimr)
+library(tidyr)
+library(broom)
+
+data <- read.csv("data/HSall_members.csv")
+```
+
+# Question 1A
+```{r Question 1A, echo=FALSE}
+current_congress <- data %>%
+  filter(congress == 116)  %>%
+  filter(party_code != 328) %>%
+  mutate(party_code, Party = ifelse(party_code == 100, "Democrat", "Republican")) %>%
+  mutate(age = 2019 - born) %>%
+  mutate(nominate_percentile = percent_rank(nominate_dim1) * 100, 0)
+  
+current_congress %>%
+  skim(c(age,nominate_percentile))
+
+# The process for this code was straightforward. Initially, I filtered for the
+# 116th congress, and I filtered out independents (as was said in the 
+# instructions). I then set all those who had a party_code of 100 to Democrat
+# while giving those without that code the Republican label. I calculated age
+# and percentile based on dimension 1 (liberal vs. conservative). Lastly, I
+# skimmed the age and nominate_percentile as was required of the pset. This 
+# a pretty straightforward process as I was told what to filter out, which
+# variables to create (and along what lines), and to skim. My initial mistake
+# was forgetting to filter out independents which initially skewed my results
+# (e.g. Bernie Sanders was a Republican). This set me up for the rest of the
+# PSET.
+
+```
+
+# Question 1B
+
+```{r Question 1b, echo=FALSE}
+ggplot(current_congress, aes(x = age, color = Party)) +
+  geom_histogram(bins = 35) +
+  theme_classic() +
+  labs(
+    x = "Age",
+    y = "Number of Congress Members",
+    title = "Ages of Members of the Current Congress (2019)",
+    color = "Party"
+  ) +
+  scale_color_manual(values = c("blue", "red")) 
+
+
+ggplot(current_congress, aes(x = nominate_percentile, color = Party)) +
+  geom_histogram(bins = 35) +
+  theme_classic() +
+  labs(
+    x = "Nominate Percentile",
+    y = "Number of Congress Members",
+    title = "Nominate Percentile of Members of the Current Congress (2019)",
+    color = "Party"
+  ) +
+  scale_color_manual(values = c("blue", "red")) 
+  
+
+# The process of creating this was the easiest as I just had to create graphs
+# for the variables I had created while being able to make the graphs however
+# I wanted to. I did so by using the parties as points of comparison.
+
+```
+
+# Question 1C
+
+```{r Question 1c, echo=FALSE}
+see <- current_congress %>% 
+  summarize(correlation = cor(age, nominate_percentile))
+
+# I was able to do this by just using the correlation function which we learned
+# in chapter 11 and practiced in class many times.
+
+```
+`r see`
+
+A negative coefficient would mean the two variables are inversely related (as one variable increases, the second decreases, so in this case, as age increases, the nominate percentile decreases) whereas a positive coefficient would mean the two variable are directly related (as one variable increases, the second increases too, so in this case, as age increases, the nominate percentile increases).
+
+# Question 1D
+
+```{r Question 1d, echo=FALSE}
+ current_congress %>%
+  ggplot(aes(x=age, y = nominate_percentile, color = Party)) +
+    geom_point() +
+    geom_smooth(method = "glm", se = FALSE) +
+    labs(x = "Age", y = "Percentile Rank (DW Nominate)", 
+    title = "Relationship Between Age and DW Nominate Percentile",
+    subtitle = "Higher scores represent more conservative positions") +
+    scale_color_manual(values = c("blue","red")) +
+    geom_smooth(method = "glm", se = FALSE, aes(group = 1), color = "black") +
+    theme_classic() 
+
+# The process of making this code was smooth as we were told to use geom_smooth
+# and had practiced doing so in class. The only issue I encountered was how to 
+# do the blackline which Ibraheem Khan helped me add to the graph.
+    
+```
+
+The direction of the line _does_ match the sign of my correlation coefficient.
+
+# Question 2A
+
+```{r Question 2A, echo=FALSE}
+democratic_members <- current_congress %>%
+    filter(Party == "Democrat")
+
+regression_model <- lm(nominate_percentile ~ age, data = democratic_members) %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high)
+
+regression_model %>%
+  gt() %>%
+  tab_header(title = "Effect of Age on DW Nominate Percentile") %>%
+  tab_spanner(label = "Higher percentile suggests more conservative", columns = 
+                c("term", "estimate", "conf.low", "conf.high")) %>%
+  cols_label(term = "Variable", estimate = "Estimate", conf.low =
+               "Lower Bound", conf.high = "Upper Bound")
+
+# I initially filter for only democrats in the current congressional session (
+# as was stipulated by the PSET rubric). I then ran a linear regression using 
+# identical code to what we did in class last Thursday while just selecting for
+# the terms we were told to. I then used the gt() function to make a table. 
+# This question wasn't too difficult as the pset rubric told us what to do, and
+# we had practiced doing something similar in class before. The only issue I
+# had was with the tab_spanner labels, but I was able to figure that out quickly
+# too. This helped me realize that I needed to filter out independents as my 
+# stats were off from those on the rubric.
+
+```
+
+# Question 2B
+
+```{r Question 2B, echo=FALSE}
+
+# I was able to answer this question by reading chapter 11 and referring back
+# to the Rubin Causal Model. 
+
+```
+
+The average treatment effect is -0.3322965 as that is the effect age has on 
+the DW Nominate Percentile. This is the case as that number is the slope of 
+the regression line, the metric for average treatment effect. I would say being
+one year older lowers the democratic member of congress’s expected percentile 
+rank for DW nominate scores by 0.3322965. We should not necessarily interpret 
+the estimated correlation as causal because this is a mere observation. We 
+could not experimentally manipulate any variables to try to understand if there
+are any underlying causation factors in the data. Older democratic senators 
+might be less conservative due to incumbency factors that allow them to be more
+liberal due to their (potential) long standing in the party. We calculate a 
+confidence interval around our average treatment effect to demonstrate the range
+of possible values for the average treatment effect as our average treatment 
+effect is just an estimate with degrees of uncertainty around its accuracy.
+
+# Question 2C
+
+```{r Question 2C, echo=FALSE}
+
+# As on the previous question, I was able to answer this question by reading 
+# chapter 11 and referring back to the Rubin Causal Model. 
+
+```
+
+The coefficient on military would be the average treatment effect that being
+randomly assigned to the military has on DW nominate percentiles. However,
+we are not able to observe differences in potential outcomes as, per the
+Rubin Causal Model, we can only observe one observation at a time, a limit of
+this model. However, we can say this analysis is causal due to the random
+assignment of individuals to the treatment or control groups.
+
+# Question 3
+
+```{r Question 3, echo=FALSE}
+
+question_3 <- data %>%
+  filter(party_code == 100) %>%
+  filter(chamber == "House" | chamber == "Senate") %>%
+  mutate(age = 1789 + (congress-1) * 2 - born) %>%
+  mutate(nominate_percentile = percent_rank(nominate_dim1) * 100, 0) %>%
+  group_by(congress) %>%
+  nest()
+
+question_3_gg <- question_3 %>%
+  mutate(mod = map(data, ~lm(nominate_percentile ~ age, data = .)), 
+         reg_results = map(mod, ~ tidy(., conf.int = TRUE)),
+         coef = map_dbl(reg_results, ~filter(., term == "age") %>%
+         pull(estimate)), se = map_dbl(reg_results, ~ filter(.,
+         term == "age") %>% pull(std.error)), upper = map_dbl
+         (reg_results, ~filter(., term == "age") %>% pull(conf.high)),
+         lower = map_dbl(reg_results, ~filter(., term == "age") %>% 
+         pull(conf.low)))
+
+ggplot(question_3_gg, aes(x = congress, y = coef)) +
+  geom_point(color = "blue") +
+  geom_errorbar(aes(x = congress, ymin = lower, ymax = upper), color = "blue") +
+  theme_classic() +
+  labs(title = "Average Treatment Effect of Age on Conservatism \n Among Democrats Over Time",
+  subtitle = "Scores use DW Nominate Dimension 1 \n 95% Confidence Interval",
+  x = "Congress", y = "Estimate")
+
+# This question was by far the hardest and most time-consuming on the PSET. I
+# was able to prepare the dataset correctly, but I realized I had to filter by 
+# chamber later on as some data points weren't in either chamber (e.g. George 
+# Washington, the President). When it came to creating new columns from the
+# regression results, I began to have trouble. I received help from Jun Yong
+# Kim on reg_results as I was getting an error for forgetting set the data
+# argument. He also helped me on coef by reminding me to pull, which allowed me
+# to figure out creating the rest of the columns. Finally, creating the graph
+# was the easiest process as the most difficult part of it, geom_errorbar, was
+# given which streamlined the creation process. Overall, I enjoyed this question
+# the most as it taught me new things to use (geom_errorbar) while also creating,
+# in my opinion, the best graph of the PSET.
+
+```
+
+Collaborators: Ibraheem Khan, Jun Yong Kim
