@@ -1,0 +1,353 @@
+---
+title: "ps_3.Rmd"
+author: "Hamaad Mehal"
+date: "2/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(dplyr)
+library(gt)
+library(ggplot2)
+library(janitor)
+library(devtools)
+library(rvest)
+
+# This chunk loads all the necessary tools and data for the endoresement info.
+# This chunk is what we use to call upon functions such as gt and ggplot2. 
+
+```
+
+```{r, include = FALSE}
+xian_data <- read_csv('raw-data/xian_data.csv', skip = 3, na = 
+                        c("undefined", ""),
+                      col_types = cols(
+                        respondent = col_double(),
+                        location = col_character(),
+                        news_source = col_character(),
+                        eval_gov_overall = col_double(),
+                        eval_gov_demo = col_double(),
+                        eval_gov_traffic = col_double(),
+                        treatment = col_double(),
+                        control = col_double()
+                      )) %>%
+  clean_names()
+xian_data
+
+#Helped by Tahmid Ahmed on this code. This code loads and reads the csv file 
+# and is used many times throughout the PSET as it contains the primary data
+# for the PSET on understanding the correlation between sports and opinion on
+# the government.
+
+```
+
+# Mad Libs
+```{r}
+treatment_number <- xian_data %>%
+  count(treatment == 1, sort = TRUE) %>%
+  slice(row=2) %>%
+  pull(n)
+
+# This code takes the data, counts the number of times treatment is entered as
+# one, and pulls it to show the respondents in the treatment group. I used this
+# method as I remember doing this in the madlibs for the last PSET and from 
+# datacamp, so this was using previous knowledge.
+
+```
+1. `r treatment_number` respondents are in the treatment group.
+
+```{r}
+average_rating <- xian_data %>%
+  filter(treatment == 1) %>%
+  summarize(mean = mean(eval_gov_overall, na.rm = TRUE))
+
+# This code filters for only respondents in the treatment group and uses the
+# simple summarize function to get the mean for the overall government score,
+# taking away non-quantifiable aspects from the data. Again, this was recalled
+# knowledge but I initially had trouble because I forgot to remove na's from
+# the dataset, which I figured out after a little bit of digging.
+
+```
+2. Among respondents from the treatment group, the government has an average `r average_rating` rating.
+
+```{r}
+averaget <- xian_data %>%
+  count(eval_gov_traffic, na.rm = TRUE) %>%
+  arrange(desc(n)) %>%
+  slice(row = 1) %>%
+  pull(eval_gov_traffic)
+
+# I used the count function and removed data that didn't exist (NA),
+# arranged it, by what number came up the most, and pulled it to get
+# the mode of this data. I was getting the wrong number initially, but
+# after getting help from Asmer, I realized I had to use the na.rm function.
+```
+3. The most common rating for the government’s handling of traffic is `r averaget`.
+
+```{r}
+perfectscores <- xian_data %>%
+  count(eval_gov_overall == 10 | eval_gov_traffic == 10 | eval_gov_demo == 10, sort = TRUE) %>%
+  slice(row=2) %>%
+  pull(n)
+
+# This code counts all of the evaluations with a score of 10, sorts for only
+# the true statement, and takes that out to be used in the sentence. Most of
+# this was identical to past madlibs, but I had to learn how to use the logic
+# OR operator in R to understand what to do.
+
+```
+4. `r perfectscores` respondents have given the government a 10 rating overall or on demolitions or on traffic.
+
+```{r} 
+perfecttd <- xian_data %>%
+  group_by(eval_gov_overall, eval_gov_traffic, eval_gov_demo) %>%
+  summarize(freq = n()) %>%
+  filter(eval_gov_overall == 10 & eval_gov_traffic == 10 & eval_gov_demo == 10) %>%
+  pull(freq)
+  
+         
+# This madlib is identical to the past madlib but with the AND logical operator
+# instead of the OR ones. I figured out how to do this madlib by using my code
+# from the previous one.
+
+```
+5. But only `r perfecttd` gave the government a 10 rating overall and on demolitions and on traffic.
+
+```{r}
+televisiond <- xian_data %>%
+  count(news_source = "A", sort = TRUE) %>%
+  pull(n)
+
+# This madlib used the same code and concepts as the first one and just changed
+# it for strings instead of numbers. It filtered for only true numbers of 
+# televison watchers and pulled it.
+
+```
+6. The number of respondents who get their news from Television is `r televisiond`.
+
+```{r}
+squarend <- xian_data %>%
+  filter(str_detect(location, "square")) %>%
+  pull(location) %>%
+  unique()
+
+# I used the filter function as I remember using str_detect from datacamp
+# and specifically pulled the location colum as that is where all of the
+# places ending with square would be. I had difficulty with only getting one 
+# of each location, but after getting some help, figured out that I had to use
+# unique.
+
+```
+7. Of the 4 different locations where the respondents were surveyed, the following two locations end with “square”: `r squarend`.
+
+# Data Wrangling
+
+1.
+```{r, Data Wrangling One Untidy, echo = FALSE}
+
+
+table <- xian_data %>%
+  select(respondent, eval_gov_overall, eval_gov_traffic, eval_gov_demo) %>%
+  head(10) %>%
+  gt() %>%
+  tab_header(title = "Untidy Data") %>%
+  tab_spanner(label = "Evaluations of Government Performance", columns = 
+                vars(eval_gov_overall, eval_gov_traffic, eval_gov_demo)) %>%
+  cols_label(respondent = "Respondent Number", eval_gov_overall = "Overall",
+             eval_gov_traffic = "Traffic", eval_gov_demo = "Demolitions")
+
+# This data wrangling problem selected for only relevant data and the first 10
+# entries (as those were the only ones specificed), and created a gt() table 
+# that created the necessary table specifications as were provided in the PSET 
+# instructions. This code was initially hard as it relied on me implementing 
+# newly learned skills, but I figured it out through collaboration and trial-
+# and-error, as well as looking at previous datacamps.
+
+table
+```
+
+
+```{r, Data Wrangling One Tidy, echo = FALSE}
+table2 <- xian_data %>%
+  select(respondent, eval_gov_overall, eval_gov_traffic, eval_gov_demo) %>%
+  head(10) %>%
+  pivot_longer(cols = c(eval_gov_overall, eval_gov_traffic, eval_gov_demo), 
+               names_to = "Type of Evaluation", values_to = "Performance Rating") %>% 
+  mutate(`Type of Evaluation` = recode(`Type of Evaluation`, 
+                                       eval_gov_overall = "Overall")) %>%
+  mutate(`Type of Evaluation` = recode(`Type of Evaluation`, 
+                                       eval_gov_traffic = "Traffic")) %>%
+  mutate(`Type of Evaluation` = recode(`Type of Evaluation`, 
+                                       eval_gov_demo = "Demo")) %>%
+  gt() %>%
+  tab_header(title = "Tidy Data") %>%
+  cols_label(respondent = "Respondent Number") 
+
+table2
+
+#This code takes the same data from the Untidy graph, takes the first 10 
+# entries, and removes the superfluous elements in the intial graph to 
+# make one that is more streamlined and clean. I had a lot of difficulty with
+# figuring out how exactly to combine eval_gov_overall, eval_gov_traffic, and
+# eval_gov_demo to one variable and relied on study halls to learn the 
+# implementation of mutate and recode to rename elements of the broader 
+# column "Type of Evaluation".
+
+```
+
+
+2.
+```{r, Data Wrangling Two, echo = FALSE}
+table3 <- xian_data %>%
+  select(respondent, treatment, control, eval_gov_overall) %>%
+  head(10) %>%
+  mutate(under_treatment = ifelse(treatment == 1, eval_gov_overall, "?")) %>%
+  mutate(under_control = ifelse(treatment == 0, eval_gov_overall, "?")) %>%
+  gt() %>%
+  cols_hide(columns = vars(eval_gov_overall)) %>%
+  tab_footnote(footnote = 
+                 "Treatment is a 2 minute video about Chinese sports 
+               performance", location = cells_title("title")) %>%
+  tab_header(title = "Potential Outcomes") %>%
+  tab_spanner(label = "Potential Outcomes", columns = vars(under_control, 
+                                                           under_treatment)) %>%
+  cols_label(respondent = "Respondent", treatment = "Treatment", control = 
+               "Control", under_control = "Under Control", under_treatment = 
+               "Under Treatment") %>%
+  cols_align(align = c("center"), columns = TRUE)
+
+# This datawrangling exercise was straightforward as I took much of the code 
+# from the first datacamp exercise to call upon the necessary data. The most
+# difficult aspect was learning how to use the ifelse function to create under
+# treatment and under control, but after learning that, creating the table
+# became straightforward.
+
+table3
+```
+
+
+3.
+```{r}
+trackdata <- xian_data %>%
+  select(respondent, eval_gov_traffic, treatment) %>%
+  filter(treatment == 1) %>%
+  arrange(desc(eval_gov_traffic)) %>%
+  slice(1:3)
+
+load(file = 'r-data/demographics.Rdata')
+
+table4 <- trackdata %>%
+  left_join(demographics, by = "respondent") %>%
+  select(respondent, eval_gov_traffic, age, gender) %>%
+  gt() %>%
+  tab_footnote(footnote = "Evaluation on Scale from 1 to 10", 
+               location = cells_title("title")) %>%
+  tab_header(title = 
+               "Highest Evaluators of Government Performance on Traffic:") %>%
+  tab_spanner(label = 
+                "Among Treated Individuals", columns = vars(respondent, 
+                eval_gov_traffic, age, gender)) %>%
+  cols_label(respondent = "Respondent", eval_gov_traffic = 
+            "Evaluate Government Performance", age = "Age", gender = 
+              "Gender") %>%
+  cols_align(align = c("center"), columns = TRUE)
+
+# This data wrangled the top three traffic evaluators in the survey and loaded
+# the .Rdata file to join it with xian_data. It then selected for additional 
+# information on the top three evaluators (such as age and gender) to give a 
+# more comprehensive view of their shared demographics. This data wrangling 
+# exercise was easy with regard to gt and calling upon xian_data. However,
+# I took the longest in figuring out when and where to use the join function
+# in the problem. I figured this out through collaboration.
+  
+table4
+```
+
+
+4.
+```{r, include = FALSE}
+numberfour <- xian_data %>%
+  full_join(demographics, by = "respondent") 
+  
+numberfour$education <- fct_relevel(numberfour$education, "Primary", 
+                      "Incomplete secondary", "Complete secondary", 
+                      "Some university", "University completed")
+  
+numberfour_2 <- numberfour %>%
+  select(respondent, treatment, control, eval_gov_overall, education) %>%
+  mutate(education = as.factor(education)) %>%
+  mutate(treatment = as.character(treatment)) %>%
+  na.omit(education) %>%
+  group_by(education, treatment, control) %>%
+  summarize(average_evaluation = mean(as.numeric(eval_gov_overall), na.rm = TRUE)) 
+
+numberfour_2
+
+# This combines the demographic and xian_data info before sepaating the 
+# education factor into five different categories and manipulating the code
+# to allow for the government evals to have a mean while grouping them to 
+# education and treatment. The last part of this was very difficult as I had
+# to learn new concepts of data manipulation and consult others on what was the
+# best method for refactoring data to be grouped and used together in 
+# visualization and analysis.
+```
+
+```{r}
+ggplot(numberfour_2, aes(education, average_evaluation, color = treatment)) +
+  geom_point() +
+  xlab(label = "Education") +
+  ylab(label = "Average Evaluation") +
+  labs(title = "Govenment Performance Evaluations \n By Treatment 
+       Group \n and Education Level") +
+  scale_colour_discrete("Viewed Sports Videos") +
+  theme_classic() +
+  theme(legend.position="top") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# This takes the data from wrangling problem number four and puts in a 
+# scatterplot that gives a comprehensive view of what exactly the data is
+# saying. I was able to do this through recollection of the first datacamp.
+
+```
+
+5.
+```{r, include = FALSE}
+url <- paste0("https://en.wikipedia.org/wiki/2008_Summer_Olympics") 
+h <- read_html(url)
+class(h)
+h
+html_text(h)
+tab <- h %>% html_nodes("table") %>%
+.[[8]] %>%
+html_table() %>%
+slice(1:10)
+tab
+
+# I did this as part of the rvest package to crawl through data on the 
+# internet. Much of what I did here was taken from Preceptor's Primer To
+# Bayesian Reasoning as Preceptor detailed every step on this method in the
+# textbook.
+
+```
+
+
+
+```{r}
+ggplot(tab, aes(x = reorder(Nation, -Gold), y = Gold)) +
+  geom_col() +
+  xlab(label = "Country") +
+  ylab(label = "Gold Medals") +
+  labs(title = "Number of Gold Medals in 2008 Beijing Olympics") +
+  theme_classic()
+
+# I took the data taken from web scraping the the rvest package to display it 
+# in a graph to be used to show the gold medals by country in the '08 Olympics.
+# This was not difficult, just called upon using bar graph skills from datacamp
+# to put the data into a graph. THe most difficult aspect was the reorder
+# function, which I got from a google search on stack exchange.
+
+```
+
+Collaborators: Ibraheem Khan, Asmer Safi, Hamid Khan, Tahmid Ahmed, Jun Yung Kim, Mohamed Mabizari
