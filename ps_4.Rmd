@@ -1,0 +1,226 @@
+---
+title: "ps_4.Rmd"
+author: "Hamaad Mehal"
+date: "3/5/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(tidycensus)
+library(gt)
+
+
+hhincome <- get_acs(geography = "county", variables = "B19013_001",
+              key = "2eb808ca0dc4c89234af7d9380aab02d1bdccb4b", 
+              year = 2018, geometry = TRUE)
+
+
+# In this code chunk I loaded all of the necessary libraries, inputted the API
+# key that I needed and used get_acs to pull the necessary information needed 
+# for the madlibs
+
+```
+
+# Mad Libs
+
+```{r, echo=FALSE}
+sd_plus_one <- function(var, na.rm = TRUE){
+  x<- sd(var, na.rm = na.rm + 1)
+  return(x)
+}
+
+sdpo <- sd_plus_one(var = hhincome$estimate)
+
+# This question just required an easy closing of parentheses which I was able 
+# to do as I got the error message which indicated to me which parentheses 
+# needed to be closed. 
+
+```
+The standard deviation of median income, plus one, is `r sdpo`.
+
+```{r, echo=FALSE}
+get_state <- function(countystate){
+  countystate %>%
+  str_split_fixed(.,", ", 2) %>% 
+  pluck(2) %>% 
+  return()
+ }
+
+got_state <- get_state(countystate = "Treasure County, Montana")
+
+# Setting the input for get_state as countystate was necessary as the initial
+# value was not being recognized. I made this a new function as I didn't want
+# to return the name in my HTML. I also recognized that another issue was the
+# fact that there was no pipe after countystate which I overlooked for a while 
+# but was able to realize afterward.
+
+```
+Treasure County, Montana is located in the state of `r got_state`.
+
+```{r, echo=FALSE}
+upper_bound <- function(geoid){
+ hhincome %>% 
+ filter(GEOID == geoid) %>% 
+ mutate(estimate + moe) %>% 
+ pull()
+}
+
+upper_ECA <- upper_bound(geoid = "01005")
+
+# This function uses the geoid as an input to get a given county and grab its 
+# median income. The way I fixed it was by inserting geoid for the function(x)
+# as this was what was causing the function to crash.
+
+```
+The upper bound for median income in Etowah County, Alabama (geoid = “01055”) is `r upper_ECA`.
+
+# Question 2
+
+``` {r Question2, echo = FALSE}
+cali_hhincome <- get_acs(geography = "county", 
+                  variables = "B19013_001", 
+                  key = "86ce3e5f84f328bd7777fb5f4f55b8b836b45022", 
+                  year = 2018, 
+                  state = "California",
+                  geometry = TRUE)
+  
+california_graph <- cali_hhincome %>% 
+  ggplot(aes(fill = estimate)) + 
+  geom_sf() + 
+  scale_fill_viridis_c(option = "plasma",
+                       direction = -1) + 
+  labs(title = "Median Income by County in California",
+       caption = "Source: American Communities Survey 2018",
+       fill = "Median Income") +
+  theme_void()
+
+california_graph
+# I specificied California when calling data to specifically pull from the state/
+# After doing so, making the graph was easy as it relied on my just formatting 
+# that information correctly, which I have done. 
+
+```
+
+# Question 3
+
+The necessary information for this is in the ps_4_rpub.Rmd that I have 
+also committed. This is the link:
+https://rpubs.com/hamaadwmehal/582059
+
+# Question 4
+This powerpoint lacks information. Tax information isn't presented in an 
+informative. It focuses on many elements tax code in a convoluted manner,
+so the explanations prove weak for readers. This skips the nuances of tax 
+code and does not provide context to readers that allows them to understand
+the situation. The bullet points create their own stories that make an 
+incoherent presentation. The attempts at logic are not subtantial from substance-
+driven perspective and works in a very biased way. There is a whole lack of 
+substance because of a pursuit to make graphs look good.. This data does not
+truly explaing the tax system of California, and it doesn't argue for the validity
+of California's tax structure. Since the information and the arguments don't seem to 
+overlap much, the data contributes little to an argument in favor of California's tax
+system which makes the visualizations somewhat obsolete. This data is not novel
+for those who know the tax system but doesn't provide any information to those 
+unfamiliar with it, making it a net negative all around.
+
+# 5A
+```{r, Question 5A, echo=FALSE}
+get_dice <- function(n) {
+  min(sample(letters, n, replace = TRUE))
+}
+
+dices <- get_dice(3)
+print(dices)
+
+```
+
+# 5B
+```{r, Question 5B, echo = FALSE}
+roll_alpha_dice <- function(n) {
+  map_chr(rep(1, n), ~ get_dice(3))
+}
+
+roll_alpha_dice(3)
+```
+
+# 5C
+```{r, Question 5C, echo = FALSE}
+
+tf <- function(n) {
+  map(rep(4,n), ~ roll_alpha_dice(.x))
+}
+
+x <- tibble(throws = tf(100)) 
+
+gt_table <- x %>%
+  slice(1:5) %>%
+  gt()
+gt_table
+
+vowels <- x %>%
+  mutate(vowel = map_lgl(throws, ~ ifelse(.[[1]] %in% 
+          c("a", "e", "i", "o", "u"), TRUE, FALSE)))
+
+```
+```{r, echo = FALSE}
+inital <- vowels %>%
+  count(vowel == TRUE)
+
+count_initial <- sum(vowels$vowel)
+```
+`r count_initial` vowels
+
+# 5D
+```{r, Question 5D, echo = FALSE}
+y <- tibble(throws = map(rep(4,1000), roll_alpha_dice)) %>%
+  mutate(all_vowels = map_lgl(throws, ~ ifelse(all(. %in% c("a", "e", "i", "o", "u")), TRUE, FALSE)))
+
+y_prob <- y %>%
+  pull(all_vowels) %>%
+  mean()
+```
+`r y_prob`. This is a significantly small number. 
+
+# 5E
+```{r, Question 5E, echo = FALSE}
+first_roll <- function(n) {
+  map(rep(1,n), ~ roll_alpha_dice(.x))
+}
+
+tibbledices <- tibble(throws = first_roll(1000)) %>% 
+  unnest(throws)
+
+tibbledices %>% 
+  ggplot(aes(x = throws)) + 
+  geom_bar() +
+  xlab("Letters") + 
+  ylab("Frequency")
+
+```
+
+# 5F
+```{r, echo = FALSE}
+new_roll <- function(n) {
+  map_chr(rep(1,n), ~ get_dice(5))
+}
+
+new_roll2 <- tibble(throws = new_roll(1000)) %>% 
+  unnest(throws)
+
+combined <- bind_rows(tibbledices, new_roll2, .id = "id") %>% 
+  mutate(id = case_when(id == 1 ~ "Three Dice",
+                        id == 2 ~ "Five Dice"))
+
+ggplot(combined, aes(x = throws)) + 
+  geom_bar() +
+  facet_wrap(~ id) +
+  xlab("Letters") + 
+  ylab("Frequency") +
+  theme_classic()
+```
+
+Collaborators: Ibraheem Khan, Asmer Safi, Jun Yung Kim

@@ -1,0 +1,50 @@
+---
+title: "ps_4_rpub.Rmd"
+author: "Hamaad Mehal"
+date: "3/5/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(tidycensus)
+library(gt)
+
+
+hhincome <- get_acs(geography = "county", variables = "B19013_001",
+              key = "2eb808ca0dc4c89234af7d9380aab02d1bdccb4b", 
+              year = 2018, geometry = TRUE)
+
+```
+
+
+``` {r Question2, echo = FALSE}
+cali_hhincome <- get_acs(geography = "county", 
+                  variables = "B19013_001", 
+                  key = "86ce3e5f84f328bd7777fb5f4f55b8b836b45022", 
+                  year = 2018, 
+                  state = "California",
+                  geometry = TRUE)
+  
+california_graph <- cali_hhincome %>% 
+  ggplot(aes(fill = estimate)) + 
+  geom_sf() + 
+  scale_fill_viridis_c(option = "plasma",
+                       direction = -1) + 
+  labs(title = "Median Income by County in California",
+       caption = "Source: American Communities Survey 2018",
+       fill = "Median Income") +
+  theme_void()
+
+california_graph
+# I specificied California when calling data to specifically pull from the state/
+# After doing so, making the graph was easy as it relied on my just formatting 
+# that information correctly, which I have done. 
+
+```
+
+
+This is the link: https://rpubs.com/hamaadwmehal/582059
