@@ -1,0 +1,223 @@
+---
+title: "exam_2.Rmd"
+author: "Hamaad Mehal"
+date: "3/28/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(haven)
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(tidycensus)
+library(gt)
+library(magrittr)
+library(infer)
+
+load("ecdat.RData")
+
+# This loads all of the necessary packages for this exam and loads the ecdat
+# data from which we will get HI and do the madlibs. This also provides the 
+# tools to make plots, tables, make and sample functions/data, and do the 
+# math necessary for this exam.
+
+```
+
+# Question 1
+
+# Question 1A
+```{r, include = FALSE}
+all_hi <- hi %>%
+  select(hhi, whi) %>%
+  count()
+  
+no_hi <- hi %>%
+  select(hhi, whi) %>%
+  filter(hhi == "no" & whi == "no") %>%
+  count()
+
+dec_men <- (no_hi / all_hi) * 100
+
+perc_men <- round(dec_men, digits = 2)
+
+# Initially, I just summed everyone in the data with an entry related to health
+# insurance. I did this, so I could use it as a denominator in later math (and
+# because I didn't want to hard code the math). I then selected for those men
+# whose wives are neither covered by their insurance nor their wives' own work
+# as this is the primary dataset we are looking at. From there, I counted those
+# individuals and divided that count by the overall people sampled. I multiplied
+# by 100 to get a percentage and lastly rounded to two digits as that was specified
+# in the rubric. The process of completing this mad lib was straightforward as it 
+# involved math and data-searching methods that we learned at the beginning of 
+# class. 
+
+```
+`r perc_men` percent of men in the sample are married to women who are neither 
+covered by their husband’s insurance (hhi) nor have health insurance from their
+own work (whi).
+
+# Question 1B
+```{r, include = FALSE}
+set.seed(1)
+
+black_men <- hi %>%
+  filter(race == "black")
+
+avg_bm_inc <- black_men %>%
+  rep_sample_n(size = 1241, replace = TRUE, reps = 1000) %>%
+  summarise(avg_inc = mean(husby)) %>%
+  pull(avg_inc) 
+
+lavg_bm_inc <- avg_bm_inc %>%
+  quantile(0.05) * 1000
+
+uavg_bm_inc <- avg_bm_inc %>%
+  quantile(0.95) * 1000
+
+# I initially set the seed to one as that was specified by the exam rubric. I
+# filtered for black men specifically from the data as that is the subset we
+# are specifically trying to analyze. I then sampled that group by running
+# 1000 samples to get different means from the population on income. I 
+# summarise every mean, pulled it, and stored it in a variable which I used the
+# quantile function to get the lower bounds and upper bounds of a 90% confidence
+# interval of the true mean income of this group of men. I multiplied by 1000
+# to get this quantile in terms of actual income and not the abbreviated 
+# version in the dataset. Because we had done a similar problem on class on 
+# Thursday, I was able to recall the method to pull both upper and lower bounds
+# from a sample, and I then proceeded to repeat the same steps as I did to get
+# those bounds from Enos's data. 
+
+```
+The upper bound of this confidence interval is `r uavg_bm_inc` and the lower 
+bound of this interval is `r lavg_bm_inc`.
+
+# 1C
+
+This confidence interval means that we are 90% certain that the true mean income
+for the population of married black men is in between 19753.36 and 21487.64 
+dollars. 
+
+The Bayesian interpretation of this confidence interval is that we are
+90% certain that the mean income for the population is in between the two 
+bounds on the confidence interval.
+
+The frequentist interpretation of this confidence interval is that, if we 
+sampled this population 1000 times, 900 of the confidence intervals will be 
+contained by the confidence interval found in 1B.
+
+# 1D
+```{r, echo = FALSE}
+plot_data <- hi %>%
+  select(whrswk, kidslt6, kids618) %>%
+  mutate(Kids = case_when(
+    kidslt6 + kids618 == 0 ~ "0",
+    kidslt6 + kids618 == 1 ~ "1",
+    kidslt6 + kids618 == 2 ~ "2",
+    TRUE ~ "3 kids or more"))
+
+ggplot(plot_data, aes(x = whrswk, fill = Kids)) +
+  geom_density(alpha = 0.4) +
+  theme_classic() +
+  scale_fill_viridis_d() +
+  labs(x = "Hours Worked", y = "Density", title =
+  "Hours Wife Works A Week", fill = "Kids") +
+  labs(caption = "Data from Olson (1998)")
+
+# I used case_when in the beginning to sum up the total amount of kids and 
+# assign that total to different vectors to be used in the graph. This was the
+# toughest part for me as I kept on getting errors with my graph, and it was 
+# because I forgot to assign the TRUE value for three kids or more. However, 
+# I didn't know how to, so it was the most time-intensive aspect of this 
+# problem. Afterward, I took the data and put it in the density plot using
+# the rubric to guide me and show me what my plot should look like. Aside from
+# figuring out how to best use case_when, the process for this problem was all
+# right as it relied on a similar problem we did two psets ago.
+
+```
+
+
+# 2A
+```{r, echo = FALSE}
+my_cold_call <- function(file_name = "raw_data/students.csv") {
+  n <- sample(1:7, 1)
+  
+  student_data <- read_csv('raw-data/students.csv',
+                      col_types = cols(
+                        name = col_character()
+                      )) %>%
+  clean_names()
+  
+  sample_n(student_data, n, replace = TRUE) %>%
+    pull(name)
+  
+}
+
+# This function loads the file and takes a sample of number from 1 to 7 which
+# it uses to determine the size of the sample to extract from the population of
+# the class. This is important as my_cold_call() only pulls up to 7 kids per class
+# day, and this function is supposed to show that. I set replace = TRUE because
+# the function is supposed to be able to call upon the same person multiple times
+# in the same class, so once they have been sampled/called upon, they can be 
+# sampled/called upon again.
+
+``` 
+
+```{r, echo = TRUE}
+set.seed(10)
+my_cold_call()
+
+
+```
+
+# 2B
+```{r, echo = FALSE}
+
+cc_day <- tibble(days = c(1:36),
+              students = (map(1:36, ~my_cold_call()))) 
+
+# This tibble assigns days (which there are 36 of) and creates an output for 
+# the function that pulls the names of a day sampled and does that 36 times
+# to have names for each day of the tibble. Making this was less about 
+# difficulty than about toggling with map to figure out how to get names. I
+# initially did not have pull in my_cold_call() which caused errors in my
+# table, and that was the most time-intensive aspect of the exam as I tried
+# to figure out what was wrong with my map function when I had just forgotten
+# to actually pull in my function. 
+              
+cc_day %>%
+        slice(1:4) %>%
+        gt() %>%
+        tab_header(title = "Cold Calls", subtitle = "First Four Days of
+                  Class") %>%
+        cols_label(days = "Day", students = "Students")
+  
+# Having figured out why my function didn't work, I was easily able to print 
+# this table using gt as I just used the gt function on the tibble I had 
+# created above of both days and students. 
+
+```
+
+# 2C
+```{r, include = FALSE} 
+percent_erm <- cc_day %>%
+  mutate(erm = map_lgl(students, ~ any
+                       (c("Eliot Min", "Rachel Auslander", "Makenna Famulari") 
+                         %in% .), TRUE, FALSE)) %>%
+        mutate(erm_outcome = case_when(erm == TRUE ~ "called")) %>%
+                 filter(erm_outcome == "called") %>%
+                 count() / .36 
+
+rpercent_erm <- round(percent_erm, digits = 2)                
+
+# This code was straightforward as I used the same process in using map_lgl in
+# this exam as I did with cards in the last pset. Thus, I used the same process
+# in the cards table of the last pset as I did with this. The code just looks for
+# any of their names in the students' entry of each day and provides whether it is
+# true or false. I then set TRUE statements to a random variable which I filtered for
+# and counted before dividing that by .36 to get the percentage of days they were called
+# on. 
+
+```
+Eliot Min, Rachel Auslender, or Makenna Famulari’s name was called on `r rpercent_erm` % of days.

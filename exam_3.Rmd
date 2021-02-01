@@ -1,0 +1,241 @@
+---
+title: "exam_3.Rmd"
+author: "Hamaad Mehal"
+date: "4/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(haven)
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(tidycensus)
+library(gt)
+library(magrittr)
+library(infer)
+library(skimr)
+library(tidyr)
+library(broom)
+```
+
+# 1A
+
+I believe the correlation coefficient between the number of migrants and the 
+amount of money that they send home will be strongly positive as remittances 
+are known to increase with more migrants that are in the US. I would control 
+variables such as legality (which might affect the ability to send money back)
+and economic downturns/unemployment rates which, as we are seeing during this
+COVID crisis, plays a disruptive, abnormal force in usual economic activities
+such as remittances.
+
+# 1B
+```{r Question 1B, echo=FALSE}
+migrants <- read.csv("raw-data/number_migrants.csv")
+
+remittances <- read.csv("raw-data/Remittances.csv")
+
+# Loading up the necessary csvs.
+
+names(remittances)[1] <- "country"
+
+# Renamed the first column for remittances.
+
+mig <-
+  pivot_longer(migrants, cols = starts_with("Migrants_"), names_to = "year",
+               names_prefix = "migrants_", values_drop_na = TRUE)
+rem <- 
+  pivot_longer(remittances, cols = starts_with("Remittances_"), names_to = "year",
+               names_prefix = "remittances_", values_drop_na = TRUE)
+
+join <- left_join(mig, rem, by= c("country", "year"), 
+                  suffix = c(".migrants", ".remittances"))  %>%
+  filter(value.migrants != 0 & value.remittances != 0)
+
+# Used pivot longer to transform the data from a wide format to one that cleans
+# up the columns and consolidates them into country and year. This allows us to
+# later join the two columns. The join was tough for me as I forgot to remove
+# the values of zero initially which was causing my data to be off by a 
+# a considerable margin. I also had to go back to the internet to figure out
+# that there was no function to remove 0s in joins.
+
+ggplot(data = join, aes(value.migrants, value.remittances, color = year)) +
+  geom_point() +
+  theme_classic() +
+  labs(x = "Number of Migrants", 
+       y = "Remittances (in dollars)",
+       title = "Relationship Between Migrants and Remittances")
+
+# I made a ggplot as was required by the test's rubric.
+
+log_join <- join %>%
+  mutate(log_migrants = log(value.migrants), log_remittances = log(value.remittances))
+
+# I mutate the data values to log the data to make it easier to see and more
+# significant. This was new as I hadn't used the log function before.
+
+ggplot(data = log_join, aes(log_migrants, log_remittances, color = year)) +
+  geom_point() +
+  theme_classic() +
+  labs(x = "Number of Migrants", 
+       y = "Remittances (in dollars)",
+       title = "Relationship Between Migrants and Remittances")
+
+# I printed a second graph with the newly logged data to demonstrate the change
+# that occurs when the data has been logged.
+
+skim(log_join)
+
+# I ran the skim to check if my work was correct.
+```
+
+# 1C
+
+```{r Question 1C, echo=FALSE}
+corr_mr <- log_join %>%
+  group_by(year) %>%
+  summarize(correlation = cor(log_migrants, log_remittances)) %>% 
+  mutate(correlation = round(correlation, 2))
+
+# Found a correlation between migrants and remittances and rounded it to make
+# the data more aesthetically pleasing.
+
+corr_mr %>%
+  gt() %>%
+  cols_label(year = "Year", correlation = "Correlation")
+
+# Formatted my data in a ggplot.
+```
+
+The coefficient for 2015 confirms (or fails to reject) my hypothesis in 1A as
+0.72 is classified as both a positive and strong correlation coefficient.
+
+
+# 2A
+
+```{r Question 2A, echo=FALSE}
+log_lr <- lm(log_remittances ~ log_migrants, data = log_join)
+
+# Ran a linear regression on remittances and migrants.
+
+log_lr %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high) %>%
+  mutate(estimate = round(estimate,2),
+         conf.low = round(conf.low,2),
+         conf.high = round(conf.high,2)) %>%
+  gt() %>% 
+  tab_header(title = "Effect of Number of Migrants on Amount of Remittances") %>%
+  tab_spanner(label = "Both IV and DV are logged", columns = c("term", 
+                      "estimate", "conf.low", "conf.high")) %>%
+  cols_label(term = "Variable", estimate = "Estimate", conf.low = "Lower Bound",
+             conf.high = "Upper Bound")
+
+# I cleaned the data and tidied it up. I took the estimate and bounds to
+# display the 95% confidence interval and relevant statistics around it
+# for the table and linear regression. This was easy as it builds upon
+# what we have been doing in class over the past couple of weeks.
+
+```
+
+# 2B
+
+The regression tells us that remittances increase by 0.84% for every percent
+increase in migrants. The Bayesian interpretations states that we are 95% sure
+that true average treatment effect is between 0.77% and 0.90% whereas the 
+frequentist interpration says that, for 95% of the times this data is sampled,
+the average treatment effect would be that remittances increase in the range
+of 0.77% and 0.90%.
+
+# 2C
+
+$$ y = 17.69 * 0.84 - 5.63 = 9.23$$
+
+```{r question 2C, echo=FALSE}
+
+log_lr %>%
+  augment() %>%
+  mutate(log_migrants = round(log_migrants, 2)) %>%
+  filter(log_migrants == 17.69) %>%
+  mutate(.fitted = round(.fitted, 2)) %>%
+  pull(.fitted)
+
+# I found this to be tougher as I was having trouble because I was not rounding
+# both the log_migrants numbers and the .fitted (making it tougher to pull
+# log_migrants that equalled 17.69).
+```
+ 
+# 3A
+
+```{r question 3A, echo=FALSE}
+log_lr <- lm(log_remittances ~ log_migrants * continent, data = log_join)
+
+log_lr %>%
+  tidy(conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high) %>%
+  mutate(estimate = round(estimate,2),
+         conf.low = round(conf.low,2),
+         conf.high = round(conf.high,2)) %>%
+  gt() %>% 
+  tab_header(title = "Effect of Number of Migrants on Amount of Remittances") %>%
+  tab_spanner(label = "Both IV and DV are logged", columns = c("term", 
+                      "estimate", "conf.low", "conf.high")) %>%
+  cols_label(term = "Variable", estimate = "Estimate", conf.low = "Lower Bound",
+             conf.high = "Upper Bound")
+
+# I copied my code from 2A and added the continent component to the linear 
+# regression to get this table, making this the easiest problem of the test.
+
+```
+
+# 3B
+
+The regression tells us that remittances increase by 0.29% for every percent
+increase in migrants from the Americas. The difference between this coefficient
+and log_migrants is that log_migrants is an increase of 0.62% for every percent
+increase of migrants overall, and the difference between this coefficient and
+continentAmericas is that that is a decrease in -2.45% remittances for every
+increase in migrants from the Americas. 
+
+# 4
+```{r Question 4, echo=FALSE}
+
+question_4 <- log_join %>%
+  group_by(year) %>%
+  nest()
+
+question_4_gg <- question_4 %>%
+  mutate(mod = map(data, ~lm(log_remittances ~ log_migrants, data = .)), 
+         reg_results = map(mod, ~ tidy(., conf.int = TRUE)),
+         coef = map_dbl(reg_results, ~filter(., term == "log_migrants") %>%
+         pull(estimate)), upper = map_dbl
+         (reg_results, ~filter(., term == "log_migrants") %>% pull(conf.high)),
+         lower = map_dbl(reg_results, ~filter(., term == "log_migrants") %>% 
+         pull(conf.low))) %>%
+        select(year, coef, lower, upper) %>%
+        ungroup(year) %>%
+        arrange(year) %>%
+        mutate(coef = round(coef, 2),
+               lower = round(lower, 2),
+               upper = round(upper, 2))
+
+# This was the toughest question due to pure length and number of components. I 
+# ran the regressions by using the same nesting and mapping functions of the 
+# past psets (for me, principally pset 7). I copied the structure of the code
+# from ps_7, but I ran into trouble with duplicates in the table. After trying
+# to see whether it was my group/ungroup fuction causing this, I found that
+# unnest caused the issue. 
+
+question_4_gg %>%
+  gt() %>%
+  cols_label(
+    year = "Year",
+    coef = "Estimate",
+    lower = "Lower Bound",
+    upper = "Upper Bound")
+  
+# After figuring out my unnest problem which cause duplicates in the table,
+# making the table was straightforward. 
+
+```

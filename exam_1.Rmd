@@ -1,0 +1,332 @@
+---
+title: "exam_1.Rmd"
+author: "Hamaad Mehal"
+date: "2/22/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(gt)
+library(ggplot2)
+library(janitor)
+library(devtools)
+
+# This chunk loads all the necessary tools and data for the endoresement info.
+# This chunk is what we use to call upon functions such as gt and ggplot2. 
+# Calling dplyr gives us the tools necessary for going through the data and
+# sifting through it in manners that I saww fit. Calling upon janitor allowed
+# me to clean the data which was advantageous as I explored it because it made
+# the data easy to go through.
+
+```
+
+```{r, include = FALSE}
+paris_data <- read_csv('raw-data/paris.csv', na =  
+                        c("undefined", ""),
+                      col_types = cols(
+                        code = col_character(),
+                        name = col_character(),
+                        signature = col_date(),
+                        ratification = col_date(),
+                        kind = col_character(),
+                        date_of_effect = col_date(),
+                        emissions = col_double(),
+                        percentage = col_double(),
+                        year = col_double()
+                      )) %>%
+  clean_names()
+
+paris_data
+
+# This code loads and reads the csv file on the Paris climate accord data and
+# is used many times throughout the PSET as it contains the primary data for
+# the PSET on understanding the correlation between sports and opinion on the
+# government. I took away the NA aspects of the data and defined the columns in
+# a way that helps understand every columns' types and how to approach those 
+# columns. Lastly, I used clean_names() to clean the data. The reason I used 
+# this is that it is similar to identical code I used in the past pset, so it
+# was easy to figure out and implement.
+
+```
+
+```{r, include=FALSE}
+carbon_data <- read_csv('raw-data/WB_co2_emisions.csv', skip = 4, na =
+                        c("undefined",""),
+                        col_types = cols(
+                        '2019' = col_double()
+                        )
+                        ) %>%
+  clean_names()
+  
+carbon_data
+
+# This code loads and reads the World Bank's emissions data as a csv file and 
+# allows for it to be used throughout the exam. This code is very similar to 
+# the code loading the Paris data, but I define fewer columns and skip the 
+# first file's four lines as those lines did not have relevant information on
+# them. My process in making this code was easy as I called upon the last read
+# _csv code for this block of code. I mad 2017 a col_double for question #3
+
+```
+# Question 1
+
+
+```{r, echo = FALSE}
+most_emissions <- paris_data %>%
+    arrange(desc(emissions)) %>%
+    select(name) %>%
+    slice(1) %>% 
+    pull(name)
+
+
+
+# This chunk was created to show the country with the highest emissions 
+# according to the Paris data. I pulled up the Paris data, arranged the
+# data according to the highest emission rates to the lowest, and I took the 
+# first name (the country with the highest emissions) and pulled that out.
+# My reason for doing this is that it allowed me to streamline getting the 
+# top carbon-emitting nation and selecting it from the data in a quick
+# and effective manner.
+
+```
+1. The highest emissions are from the country `r most_emissions`.
+
+```{r, echo=FALSE}
+not_ra <- paris_data %>%
+  select(kind) %>%
+  filter(kind == "Acceptance" | kind == "Accession") %>%
+  summarize(nr = n()) %>%
+  pull(nr)
+
+
+# This chunk selects for nations that have accepted or accessed the climate 
+# treaty, and this does this through selecting the column  kind and just looks
+# for nations that have the status of acceptance and accession. I then 
+# counted a pulled the number from the data. The reason I did this was the 
+# prompt wanted to count only countries that haven't ratified or approved the
+# treaty, so I only selected against those that ratified and approved it.  
+# However, I didn't want to include NAs as those are inconclusive, so I 
+# filtered specifically for those I was sure didn't ratify or approve (i.e. 
+# they are under acceptance or accession).
+
+```
+2. The number of countries that have neither ratified nor approved of the treaty is `r not_ra`. (Acceptance and accession do not count as approval).
+
+```{r, echo=FALSE}
+longest_day <- paris_data %>%
+  filter(kind == "Ratification") %>%
+  mutate(date_diff = as.numeric(ratification - signature)) %>%
+  arrange(desc(date_diff)) %>%
+  slice(1) %>%
+  pull(date_diff)
+
+
+
+# This chunk filtered for only the countries that ratified the data, made their
+# dates numeric to allow for me to quantify the days between the date of 
+# ratification and the signature, and then took that difference. I then 
+# arranged countries in order from highest difference to lowest and took the 
+# topmost country's numerical difference by pulling it. I initially filtered
+# for only countries that ratified the treaty as those were the only countries
+# applicable to the data set. I then numericized their dates for the 
+# ratification and signature as that is the only way to find the numerical
+# difference between dates. I used mutate as mutate allows for data to be
+# manipulated in a different variable. Arranging, slicing, and pulling were all
+# concepts I used to pull off the topmost data point I was looking for. 
+
+```
+3. The longest number of days between signature and ratification (for a country that has successfully ratified) is `r longest_day` days.
+
+```{r,echo=FALSE}
+stan <- paris_data %>%
+  filter(kind == "Ratification") %>%
+  filter(str_detect(name, "stan")) %>%
+  count() %>%
+  pull()
+
+
+
+# I filtered for ratifying countries initially for the same reason as I did
+# in the chunk above (those are the only countries the prompt wants us to look)
+# at. I used str_detect to filter for only countries with stan in them, and 
+# because I know "stan" is only a suffix, I didn't have to worry about the 
+# positioning of the string (will always be at the end). I counted it and then
+# pulled the number to get the number of countries ending in stan who ratified
+# as we are only looking to pull the number (which I did in the end).
+
+```
+4. The number of ratifying countries whose name ends with “stan” is `r stan`.
+
+```{r, echo=FALSE}
+high_em <- carbon_data %>%
+  arrange(desc(x1960)) %>%
+  slice(1) %>%
+  pull(country_name)
+
+
+
+# My reasoning behind this code was very straightforward as I only filtered the
+# carbon data as that was the only data that contained the emissions for every 
+# year since, and including, 1960. I then arranged it by descending order to 
+# get the topmost number in terms of emissions and sliced that row and pulled
+# country name to see which country had the highest emissions.
+  
+```
+5. In 1960, the country with the highest emissions was `r high_em`.
+
+```{r, echo=FALSE}
+av_emissions <- carbon_data %>%
+  select(x2000) %>%
+  mutate(mean = mean(x2000, na.rm = TRUE)) %>%
+  slice(1) %>%
+  pull(mean)
+
+ 
+
+# This code was pretty straightforward as well as I was just tasked with 
+# finding the mean of the 2000 emissions, so I initially selected for just the
+# year 2000 in the carbon_data. I then got the mean through a mutate function 
+# in which I calculated the mean of the 2000 data by using the mean function 
+# for that column and removing any NAs (as those wouldn't allow me to find the
+# mean). I then took the mean and pulled it out as was asked by the question.
+```
+6. The average emissions in 2000 was `r av_emissions` metric tons per capita.
+
+# Question 2
+```{r, include=FALSE}
+table1 <- carbon_data %>%
+  filter(country_name == "Afghanistan") %>%
+  pivot_longer(cols = starts_with("x"), names_prefix = "x", names_to = "year", values_to = "emissions_per_capita") %>%
+  filter(year > "1998" & year < "2010") %>%
+  rename(code = `country_code`) 
+
+# This code was made to allow me to visualize my use of pivot_longer to compare
+# it to that in the exam document. Essentially, I sorted the years into one 
+# column by removing the x and then sorting them into a year column where the
+# initial values under year on emissions data is now stored under emissions per
+# capita. I renamed country_code to code to allow for an easier joining of data 
+# later. 
+
+table1
+```
+
+
+```{r, include=FALSE}
+new_carbon_data <- carbon_data %>% 
+  pivot_longer(cols = starts_with("x"), names_prefix = "x", names_to = "year", 
+               values_to = "emissions_per_capita", values_drop_na = TRUE, 
+               values_ptypes = list(year = double())) %>%
+              rename(code = `country_code`) %>%
+              rename (name = `country_name`)
+
+new_carbon_data
+
+# I took the code above and made it relevant for countries aside from 
+# Afghanistan and outside of the decade beteen 1999 and 2009. I did this as I
+# will have to join this cleaned up data with the paris_data in the second part
+# of the question.
+
+```
+
+```{r, include=FALSE}
+ij1 <- inner_join(paris_data, new_carbon_data, by = c("code", "name")) %>%
+      filter(name == "Pakistan")
+
+ij1
+
+# This was my join function of the two datasets (regular paris_data and new 
+# carbon data). I joined the two on code and name as those are the only two
+# columns in which the data are similar, so they were the easiest link I found
+# for combining the datasets. This will be used for my plot, and I chose 
+# Pakistan because I am of Pakistani descent, and I do not know the data 
+# regarding climate policy in the country (whereas I do for the US). This was
+# a cool opportunity for me to not only visualize this data for others but for 
+# myself as well.
+
+```
+
+```{r, echo=FALSE}
+plot1 <- ggplot(ij1, aes(year.y, emissions_per_capita)) +
+                    geom_point() +
+                    xlab(label = "Year") +
+                    ylab(label = "Metric Tons Per Capita") +
+                    labs(title = "Pakistan's CO2 Emissions Per Capita") +
+                    geom_vline(xintercept=52) +
+                    scale_x_discrete(breaks = c(0, 20, 40), label =
+                    c("1960", "1980", "2000")) +
+                    geom_text(aes(x=54, label="Year Paris Accord \n Took Affect"
+                                  , y=0.6, angle = 90)) +
+                    theme_classic() 
+                    
+plot1
+
+# I used the same method as I did for previous plots, but this time I used 
+# discrete values instead of continuous as the year are characters for the 
+# plot. I used geom_text to add the text for the vertical line and placed it at
+# 2016, the year the accord took effect.
+```
+
+
+
+# Question 3 
+
+```{r, echo=FALSE}
+question3 <- paris_data %>%
+  filter(kind == "Ratification") %>%
+  mutate(treatment = ifelse(grepl("^(A|E|I|O|U)", name), 1, 0)) %>%
+  mutate(control = ifelse(grepl("^(A|E|I|O|U)", name), 0, 1)) %>%
+  mutate(under_treatment = ifelse(treatment == 1, emissions, "?")) %>%
+  mutate(under_control = ifelse(treatment == 0, emissions, "?")) %>%
+  select(name, treatment, control, under_treatment, under_control) %>%
+  gt() %>%
+  tab_header("Monetary Effects on Emissions") %>%
+  tab_spanner(label = "Potential Outcomes", columns = vars(under_control, 
+                                                           under_treatment)) %>%
+  cols_label(name = "Country Name", treatment = "Treatment", control = 
+               "Control", under_control = "Under Control", under_treatment = 
+               "Under Treatment") %>%
+  cols_align(align = c("center"), columns = TRUE)
+
+question3
+
+# This question was straightforward but took me a while to figure out due to
+# the creation of new variables using functions that I have not been exposed to
+# much yet. The intial filtering for ratification was straightforward as that 
+# is expressly specified by the prompt. I knew to use ifelse statements as the
+# objective was similar to the last PSET in terms of the creation of new graphs.
+# However, I did not know how to create new columns (treatment or control) by 
+# looking at the beginning of names. But I found  https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/grep
+# this article which taught me to use grepl when filtering for strings. I
+# then used previous regex knowledge for calling upon specific characters in a
+# string to assign groups with those characters (vowels) at the beginning to
+# either treatment or control. Then again, to show causal relations, I created
+# another two variables that allowed for viewers to see the effect that giving
+# a billion dollars had on the emissions of the treatment group. For under 
+# treatment, I put the emissions down to show that we know what giving a 
+# billion does to the treatment group. However, for non-treatment group 
+# countries, they had a question mark in this column because we do not know the
+# effects being in a treatment group would have on the emissions of the country.
+# This occurred but in the opposite manner with the control group. I then 
+# selected these and put them in a table in a similar manner as I did in ps_3 
+# as the gt() aspects were pretty straightforward.
+
+```
+
+The causal effect I am trying to measure is the effect that giving a billion 
+dollars will have on the carbon emissions of a country that ratified the Paris
+treaty. The assignment mechanism being used is giving a billion 
+dollars (the treatment group) to countries whose names start with a vowel 
+amongst those nations that ratified the treaty. I do not think it's random 
+enough only because I do not know the frequency of nations that start with 
+vowels amongst those that ratified the treaty, and there may be confounding
+factors in this method (i.e. nations in a certain region all have similar 
+name beginning due to factors such as language, so this method doesn't 
+take into account this while filtering for randomness). There are question 
+marks in half of the table because there is no way to measure the emissions
+of a nation that is not the other group as that relies on an a metric that 
+did not occur and is thus a counterfactual. Because we have no actual 
+observances in the other group, we cannot put data there as we do not know
+counterfactual emission levels. Thus, that data is left as question marks.
